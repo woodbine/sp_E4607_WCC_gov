@@ -67,7 +67,7 @@ for url in urls:
         csvfiles = csvfile.split('spend-')[1].split('-financial-year')[0].split('financial-year-')[-1]
         csvYr = '20' + csvfiles[5:7]
         csvMth = '12'
-        filename = entity_id + "_" + csvYr + "_" + csvMth
+        filename = 'Y'+entity_id + "_" + csvYr + "_" + csvMth
         todays_date = str(datetime.now())
         file_url = csvfile
         validFilename = validateFilename(filename)
