@@ -1,93 +1,133 @@
 # -*- coding: utf-8 -*-
+
+#### IMPORTS 1.0
+
 import os
 import re
-import requests
 import scraperwiki
 import urllib2
 from datetime import datetime
 from bs4 import BeautifulSoup
-from dateutil.parser import parse
+import requests
 
-# Set up variables
-entity_id = "E4607_WCC_gov"
-urls = ["http://data.wolverhampton.gov.uk/Download/finance/council-spend-2011-12-financial-year", "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2012-13-financial-year",
-      "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2013-14-financial-year", "http://data.wolverhampton.gov.uk/Download/finance/council-spend-financial-year-2014-15-full"]
-errors = 0
-# Set up functions
+
+#### FUNCTIONS 1.0
+
 def validateFilename(filename):
-    filenameregex = '^[a-zA-Z0-9]+_[a-zA-Z0-9]+_[a-zA-Z0-9]+_[0-9][0-9][0-9][0-9]_[0-9][0-9]$'
-    dateregex = '[0-9][0-9][0-9][0-9]_[0-9][0-9]'
+    filenameregex = '^[a-zA-Z0-9]+_[a-zA-Z0-9]+_[a-zA-Z0-9]+_[0-9][0-9][0-9][0-9]_[0-9QY][0-9]$'
+    dateregex = '[0-9][0-9][0-9][0-9]_[0-9QY][0-9]'
     validName = (re.search(filenameregex, filename) != None)
     found = re.search(dateregex, filename)
     if not found:
         return False
     date = found.group(0)
-    year, month = int(date[:4]), int(date[5:7])
     now = datetime.now()
-    validYear = (2000 <= year <= now.year)
-    validMonth = (1 <= month <= 12)
+    year, month = date[:4], date[5:7]
+    validYear = (2000 <= int(year) <= now.year)
+    if 'Q' in date:
+        validMonth = (month in ['Q0', 'Q1', 'Q2', 'Q3', 'Q4'])
+    elif 'Y' in date:
+        validMonth = (month in ['Y1'])
+    else:
+        try:
+            validMonth = datetime.strptime(date, "%Y_%m") < now
+        except:
+            return False
     if all([validName, validYear, validMonth]):
         return True
+
+
 def validateURL(url):
     try:
-        r = requests.get(url, allow_redirects=True, timeout=20)
+        r = urllib2.urlopen(url)
         count = 1
-        while r.status_code == 500 and count < 4:
+        while r.getcode() == 500 and count < 4:
             print ("Attempt {0} - Status code: {1}. Retrying.".format(count, r.status_code))
             count += 1
-            r = requests.get(url, allow_redirects=True, timeout=20)
+            r = urllib2.urlopen(url)
         sourceFilename = r.headers.get('Content-Disposition')
 
         if sourceFilename:
             ext = os.path.splitext(sourceFilename)[1].replace('"', '').replace(';', '').replace(' ', '')
         else:
             ext = os.path.splitext(url)[1]
-        validURL = r.status_code == 200
-        validFiletype = ext in ['.csv', '.xls', '.xlsx']
+        validURL = r.getcode() == 200
+        validFiletype = ext in ['.csv', '.xls', '.xlsx', '.docx']
         return validURL, validFiletype
     except:
-        raise
+        print ("Error validating URL.")
+        return False, False
+
+
+def validate(filename, file_url):
+    validFilename = validateFilename(filename)
+    validURL, validFiletype = validateURL(file_url)
+    if not validFilename:
+        print filename, "*Error: Invalid filename*"
+        print file_url
+        return False
+    if not validURL:
+        print filename, "*Error: Invalid URL*"
+        print file_url
+        return False
+    if not validFiletype:
+        print filename, "*Error: Invalid filetype*"
+        print file_url
+        return False
+    return True
+
+
 def convert_mth_strings ( mth_string ):
-
     month_numbers = {'JAN': '01', 'FEB': '02', 'MAR':'03', 'APR':'04', 'MAY':'05', 'JUN':'06', 'JUL':'07', 'AUG':'08', 'SEP':'09','OCT':'10','NOV':'11','DEC':'12' }
-    #loop through the months in our dictionary
     for k, v in month_numbers.items():
-#then replace the word with the number
-
         mth_string = mth_string.replace(k, v)
     return mth_string
-# pull down the content from the webpage'
+
+
+#### VARIABLES 1.0
+
+entity_id = "E4607_WCC_gov"
+urls = ["http://data.wolverhampton.gov.uk/Download/finance/council-spend-2011-12-financial-year", "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2012-13-financial-year",
+      "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2013-14-financial-year", "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2014-15-financial-year-version-update"]
+errors = 0
+data = []
+
+#### READ HTML 1.1 - no "lxml"
+
 for url in urls:
     html = urllib2.urlopen(url)
     soup = BeautifulSoup(html, 'lxml')
-    # find all entries with the required class
+#### SCRAPE DATA
+
     links = soup.findAll('a', 'download button green CSV')
     for link in links:
-        csvfile = 'http://data.wolverhampton.gov.uk' + link['href']
-        csvfiles = csvfile.split('spend-')[1].split('-financial-year')[0].split('financial-year-')[-1]
+        url = 'http://data.wolverhampton.gov.uk' + link['href']
+        csvfiles = url.split('spend-')[1].split('-financial-year')[0].split('financial-year-')[-1]
         csvYr = '20' + csvfiles[5:7]
-        csvMth = '12'
-        filename = 'Y'+entity_id + "_" + csvYr + "_" + csvMth
+        csvMth = 'Y1'
+        csvMth = convert_mth_strings(csvMth.upper())
         todays_date = str(datetime.now())
-        file_url = csvfile
-        validFilename = validateFilename(filename)
-        validURL, validFiletype = validateURL(file_url)
-        if not validFilename:
-            print filename, "*Error: Invalid filename*"
-            print file_url
-            errors += 1
-            continue
-        if not validURL:
-            print filename, "*Error: Invalid URL*"
-            print file_url
-            errors += 1
-            continue
-        if not validFiletype:
-            print filename, "*Error: Invalid filetype*"
-            print file_url
-            errors += 1
-            continue
+        data.append([csvYr, csvMth, url])
+
+#### STORE DATA 1.0
+
+for row in data:
+    csvYr, csvMth, url = row
+    filename = entity_id + "_" + csvYr + "_" + csvMth
+    todays_date = str(datetime.now())
+    file_url = url.strip()
+
+    valid = validate(filename, file_url)
+
+    if valid == True:
         scraperwiki.sqlite.save(unique_keys=['l'], data={"l": file_url, "f": filename, "d": todays_date })
         print filename
+    else:
+        errors += 1
+
 if errors > 0:
     raise Exception("%d errors occurred during scrape." % errors)
+
+
+#### EOF
+
