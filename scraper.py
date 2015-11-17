@@ -8,7 +8,7 @@ import scraperwiki
 import urllib2
 from datetime import datetime
 from bs4 import BeautifulSoup
-import requests
+
 
 
 #### FUNCTIONS 1.0
@@ -52,7 +52,7 @@ def validateURL(url):
         else:
             ext = os.path.splitext(url)[1]
         validURL = r.getcode() == 200
-        validFiletype = ext in ['.csv', '.xls', '.xlsx', '.docx']
+        validFiletype = ext.lower() in ['.csv', '.xls', '.xlsx']
         return validURL, validFiletype
     except:
         print ("Error validating URL.")
@@ -91,14 +91,18 @@ urls = ["http://data.wolverhampton.gov.uk/Download/finance/council-spend-2011-12
       "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2013-14-financial-year", "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2014-15-financial-year-version-update"]
 errors = 0
 data = []
+url = 'http://example.com'
 
-#### READ HTML 1.1 - no "lxml"
+#### READ HTML 1.0
+
+html = urllib2.urlopen(url)
+soup = BeautifulSoup(html, 'lxml')
+
+#### SCRAPE DATA
 
 for url in urls:
     html = urllib2.urlopen(url)
     soup = BeautifulSoup(html, 'lxml')
-#### SCRAPE DATA
-
     links = soup.findAll('a', 'download button green CSV')
     for link in links:
         url = 'http://data.wolverhampton.gov.uk' + link['href']
