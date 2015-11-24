@@ -87,11 +87,10 @@ def convert_mth_strings ( mth_string ):
 #### VARIABLES 1.0
 
 entity_id = "E4607_WCC_gov"
-urls = ["http://data.wolverhampton.gov.uk/Download/finance/council-spend-2011-12-financial-year", "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2012-13-financial-year",
-      "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2013-14-financial-year", "http://data.wolverhampton.gov.uk/Download/finance/council-spend-2014-15-financial-year-version-update"]
+url = 'http://data.wolverhampton.gov.uk/Download/finance'
 errors = 0
 data = []
-url = 'http://example.com'
+
 
 #### READ HTML 1.0
 
@@ -100,18 +99,21 @@ soup = BeautifulSoup(html, 'lxml')
 
 #### SCRAPE DATA
 
-for url in urls:
-    html = urllib2.urlopen(url)
-    soup = BeautifulSoup(html, 'lxml')
-    links = soup.findAll('a', 'download button green CSV')
-    for link in links:
-        url = 'http://data.wolverhampton.gov.uk' + link['href']
-        csvfiles = url.split('spend-')[1].split('-financial-year')[0].split('financial-year-')[-1]
-        csvYr = '20' + csvfiles[5:7]
-        csvMth = 'Y1'
-        csvMth = convert_mth_strings(csvMth.upper())
-        todays_date = str(datetime.now())
-        data.append([csvYr, csvMth, url])
+year_links = soup.find('ul', 'biglist clickablelistrows').find_all('a')
+for year_link in year_links:
+    if 'spend' in year_link['href']:
+        y_link = 'http://data.wolverhampton.gov.uk'+year_link['href']
+        html = urllib2.urlopen(y_link)
+        soup = BeautifulSoup(html, 'lxml')
+        links = soup.findAll('a', 'download button green CSV')
+        for link in links:
+            url = 'http://data.wolverhampton.gov.uk' + link['href']
+            csvfiles = url.split('spend-')[1].split('-financial-year')[0].split('financial-year-')[-1]
+            csvYr = '20' + csvfiles[5:7]
+            csvMth = 'Y1'
+            csvMth = convert_mth_strings(csvMth.upper())
+            todays_date = str(datetime.now())
+            data.append([csvYr, csvMth, url])
 
 #### STORE DATA 1.0
 
@@ -124,7 +126,7 @@ for row in data:
     valid = validate(filename, file_url)
 
     if valid == True:
-        scraperwiki.sqlite.save(unique_keys=['l'], data={"l": file_url, "f": filename, "d": todays_date })
+        scraperwiki.sqlite.save(unique_keys=['f'], data={"l": file_url, "f": filename, "d": todays_date })
         print filename
     else:
         errors += 1
