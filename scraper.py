@@ -109,9 +109,7 @@ for year_link in year_links:
         for link in links:
             url = 'http://data.wolverhampton.gov.uk' + link['href']
             csvfiles = url.split('spend-')[1].split('-financial-year')[0].split('financial-year-')[-1]
-            csvYr = '20' + csvfiles[5:7]
-            if '-2015' in csvfiles:
-                csvYr = csvfiles[-4:]
+            csvYr = csvfiles[:4]
             csvMth = 'Y1'
             csvMth = convert_mth_strings(csvMth.upper())
             todays_date = str(datetime.now())
